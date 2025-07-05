@@ -77,11 +77,6 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  // Check if user owns the video
-  if (video.owner.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, "Unauthorized to update this video");
-  }
-
   const updateData = {};
 
   if (title) updateData.title = title;
@@ -106,7 +101,16 @@ const updateVideo = asyncHandler(async (req, res) => {
 
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: delete video
+
+  if (!videoId) {
+    throw new ApiError(400, "invalid videoId");
+  }
+
+  await Video.deleteOne({ _id: videoId });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "video deleted successfully"));
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
