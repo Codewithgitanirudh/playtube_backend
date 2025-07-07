@@ -7,7 +7,63 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
-  //TODO: get all videos based on query, sort, pagination
+  
+  if(!isValidObjectId(userId)){
+    throw new ApiError(400, "Invalid user id");
+  }
+
+  let sort = {};
+  if (sortBy) {
+    sort[sortBy] = sortType === "desc" ? -1 : 1;
+  } else {
+    sort.createdAt = -1;
+  }
+
+  // Build the match condition
+  let matchCondition = { owner: userId };
+  
+  // Add search query if provided
+  if (query) {
+    matchCondition.$or = [
+      { title: { $regex: query, $options: "i" } },
+      { description: { $regex: query, $options: "i" } }
+    ];
+  }
+
+  // Convert page and limit to numbers
+  const pageNumber = parseInt(page);
+  const limitNumber = parseInt(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  // Get videos with pagination
+  const videos = await Video.find(matchCondition)
+    .sort(sort)
+    .skip(skip)
+    .limit(limitNumber)
+    .populate("owner", "username fullName avatar");
+
+  // Get total count for pagination info
+  const totalVideos = await Video.countDocuments(matchCondition);
+  const totalPages = Math.ceil(totalVideos / limitNumber);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          videos,
+          pagination: {
+            currentPage: pageNumber,
+            totalPages,
+            totalVideos,
+            hasNextPage: pageNumber < totalPages,
+            hasPrevPage: pageNumber > 1
+          }
+        },
+        "Videos fetched successfully"
+      )
+    );
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -121,7 +177,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   }
 
   const videoDetail = await Video.findById(videoId);
-  
+
   if (!videoDetail) {
     throw new ApiError(404, "Video not found");
   }
@@ -134,7 +190,13 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedVideo, "Video publish status toggled successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        updatedVideo,
+        "Video publish status toggled successfully"
+      )
+    );
 });
 
 export {
