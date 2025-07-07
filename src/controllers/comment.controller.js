@@ -86,7 +86,6 @@ const getVideoComments = asyncHandler(async (req, res) => {
       )
     );
 
-  console.log(allComments, commentCount, "comment");
 });
 
 const addComment = asyncHandler(async (req, res) => {
