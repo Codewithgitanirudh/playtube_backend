@@ -47,28 +47,42 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
 
   if (!isValidObjectId(playlistId)) {
-    throw new ApiError(400, "playlist not found");
+    throw new ApiError(400, "Invalid playlist ID");
   }
 
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(400, "invalid videoId");
+    throw new ApiError(400, "Invalid video ID");
   }
 
-  const playlistVideoArray = await Playlist.findById(playlistId);
+  const playlist = await Playlist.findById(playlistId);
 
-  if (playlistVideoArray.videos.includes(videoId)) {
-    throw new ApiError(400, "video already exist");
+  if (!playlist) {
+    throw new ApiError(404, "Playlist not found");
   }
 
-  const playlist = await Playlist.findByIdAndUpdate(
+  // Check if the user is the owner of the playlist
+  if (playlist.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to modify this playlist");
+  }
+
+  if (playlist.videos.includes(videoId)) {
+    throw new ApiError(400, "Video already exists in playlist");
+  }
+
+  const updatedPlaylist = await Playlist.findByIdAndUpdate(
     playlistId,
     {
       $push: { videos: videoId },
     },
     { new: true }
-  );
+  ).populate("videos", "title thumbnail duration views")
+   .populate("owner", "username avatar fullName");
 
-  return res.status(200).json(new ApiResponse(200, playlist, "video added successfully"));
+  if (!updatedPlaylist) {
+    throw new ApiError(500, "Something went wrong while adding video to playlist");
+  }
+
+  return res.status(200).json(new ApiResponse(200, updatedPlaylist, "Video added to playlist successfully"));
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
