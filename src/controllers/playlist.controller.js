@@ -75,19 +75,76 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
       $push: { videos: videoId },
     },
     { new: true }
-  ).populate("videos", "title thumbnail duration views")
-   .populate("owner", "username avatar fullName");
+  )
+    .populate("videos", "title thumbnail duration views")
+    .populate("owner", "username avatar fullName");
 
   if (!updatedPlaylist) {
-    throw new ApiError(500, "Something went wrong while adding video to playlist");
+    throw new ApiError(
+      500,
+      "Something went wrong while adding video to playlist"
+    );
   }
 
-  return res.status(200).json(new ApiResponse(200, updatedPlaylist, "Video added to playlist successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedPlaylist,
+        "Video added to playlist successfully"
+      )
+    );
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
-  // TODO: remove video from playlist
+
+  if (!isValidObjectId(playlistId)) {
+    throw new ApiError(400, "Invalid playlist ID");
+  }
+
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  const playlist = await Playlist.findById(playlistId);
+
+  if (!playlist) {
+    throw new ApiError(404, "Playlist not found");
+  }
+
+  // Check if the user is the owner of the playlist
+  if (playlist.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to modify this playlist");
+  }
+
+  const updatedPlaylist = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      $pull: { videos: videoId },
+    },
+    { new: true }
+  )
+    .populate("videos", "title thumbnail duration views")
+    .populate("owner", "username avatar fullName");
+
+  if (!updatedPlaylist) {
+    throw new ApiError(
+      500,
+      "Something went wrong while deleting video from playlist"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedPlaylist,
+        "Video added to playlist successfully"
+      )
+    );
 });
 
 const deletePlaylist = asyncHandler(async (req, res) => {
