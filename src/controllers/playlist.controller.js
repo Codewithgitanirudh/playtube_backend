@@ -35,12 +35,49 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  //TODO: get user playlists
+
+  if (!isValidObjectId(userId)) {
+    throw new ApiError(400, "you are not authorized to fetch playlist");
+  }
+
+  const getUserPlaylists = await Playlist.find({ owner: userId })
+    .populate("videos", "title thumbnail duration views")
+    .populate("owner", "username avatar fullName");
+
+  if (!getUserPlaylists) {
+    throw new ApiError(
+      500,
+      "something went wrong while fetching user playlists"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        getUserPlaylists,
+        "user playlist fetched successfully"
+      )
+    );
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
-  //TODO: get playlist by id
+
+  if (!isValidObjectId(playlistId)) {
+    throw new ApiError(400, "Invalid playlist ID");
+  }
+
+  const playlist = await Playlist.findById(playlistId)
+    .populate("videos", "title thumbnail duration views")
+    .populate("owner", "username avatar fullName");
+
+  if (!playlist) {
+    throw new ApiError(500, "something went wrong while fetching playlist");
+  }
+
+  return res.status(200).json(new ApiResponse(200, playlist, "playlist fetced successfully"));
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
